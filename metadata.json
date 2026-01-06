@@ -1,0 +1,5 @@
+{
+  "name": "PMIS CommManager",
+  "description": "AI-powered Project Management Information System module for Stakeholder Communication (PMBOK 5.3, 5.6, 5.7). Features planning, monitoring, and performance analysis.",
+  "requestFramePermissions": []
+}
