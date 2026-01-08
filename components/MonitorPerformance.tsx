@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { CommIssue, CommFeedback } from '../types';
 import { evaluateCommunicationPerformance } from '../services/geminiService';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { 
+  Radar, 
+  RadarChart, 
+  PolarGrid, 
+  PolarAngleAxis, 
+  PolarRadiusAxis, 
+  ResponsiveContainer, 
+  Tooltip 
+} from 'recharts';
 import { AlertTriangle, Check, FileText, Activity, MessageSquare, Plus, Star, X } from 'lucide-react';
 import InfoTooltip from './InfoTooltip';
 
@@ -59,10 +67,12 @@ const MonitorPerformance: React.FC<Props> = ({ searchQuery }) => {
     setNewFeedback({ rating: 5 });
   };
 
-  const chartData = [
-    { name: 'Timeliness', value: 75, color: '#4f46e5', tooltip: 'The degree to which information was available to stakeholders when needed.' },
-    { name: 'Clarity', value: 60, color: '#f59e0b', tooltip: 'The degree to which the information was understood by the recipient.' },
-    { name: 'Feedback', value: 85, color: '#10b981', tooltip: 'The effectiveness of the mechanism for stakeholders to acknowledge receipt and provide response.' },
+  const radarData = [
+    { subject: 'Timeliness', A: 85, fullMark: 100 },
+    { subject: 'Clarity', A: 65, fullMark: 100 },
+    { subject: 'Relevance', A: 90, fullMark: 100 },
+    { subject: 'Consistency', A: 70, fullMark: 100 },
+    { subject: 'Feedback Loop', A: 60, fullMark: 100 },
   ];
 
   const filteredIssues = issues.filter(issue => 
@@ -98,39 +108,35 @@ const MonitorPerformance: React.FC<Props> = ({ searchQuery }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* KPI Chart */}
+        {/* KPI Chart (Radar) */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 transition-colors">
-          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-6 flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-2">
             Effectiveness Metrics
-            <InfoTooltip text="Quantitative assessment of communication quality dimensions." />
+            <InfoTooltip text="Multi-dimensional assessment of communication quality." />
           </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Radar analysis of key communication dimensions (0-100 scale).</p>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.2} />
-                <XAxis type="number" domain={[0, 100]} stroke="#888888" />
-                <YAxis dataKey="name" type="category" width={80} stroke="#888888" tick={{fill: 'currentColor', fontSize: 12}} />
+              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                <PolarGrid stroke="#e5e7eb" strokeOpacity={0.5} />
+                <PolarAngleAxis 
+                    dataKey="subject" 
+                    tick={{ fill: '#6b7280', fontSize: 11 }} 
+                />
+                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                <Radar
+                  name="Current Performance"
+                  dataKey="A"
+                  stroke="#4f46e5"
+                  strokeWidth={2}
+                  fill="#4f46e5"
+                  fillOpacity={0.2}
+                />
                 <Tooltip 
-                    cursor={{fill: 'transparent'}} 
-                    contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff' }}
-                    content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        return (
-                            <div className="bg-gray-900 text-white text-xs p-2 rounded shadow-lg max-w-[200px]">
-                            <p className="font-bold mb-1">{data.name}: {data.value}%</p>
-                            <p>{data.tooltip}</p>
-                            </div>
-                        );
-                        }
-                        return null;
-                }}/>
-                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={30}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
+                    contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', borderRadius: '0.375rem', fontSize: '12px' }}
+                    itemStyle={{ color: '#fff' }}
+                />
+              </RadarChart>
             </ResponsiveContainer>
           </div>
         </div>

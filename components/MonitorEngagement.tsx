@@ -1,7 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Stakeholder, EngagementLevel } from '../types';
 import { analyzeEngagementGaps } from '../services/geminiService';
-import { AlertCircle, CheckCircle2, TrendingUp, RefreshCw, Zap, Sparkles, ArrowRight } from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer 
+} from 'recharts';
+import { AlertCircle, CheckCircle2, TrendingUp, RefreshCw, Zap, Sparkles, ArrowRight, Table as TableIcon, BarChart3 } from 'lucide-react';
 import InfoTooltip from './InfoTooltip';
 
 interface Props {
@@ -12,6 +22,7 @@ interface Props {
 const MonitorEngagement: React.FC<Props> = ({ stakeholders, searchQuery }) => {
   const [analysis, setAnalysis] = useState<{ summary: string; actions: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
 
   const runAnalysis = async () => {
     setLoading(true);
@@ -29,6 +40,18 @@ const MonitorEngagement: React.FC<Props> = ({ stakeholders, searchQuery }) => {
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     s.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Prepare data for the chart
+  const chartData = useMemo(() => {
+    const levels = Object.values(EngagementLevel);
+    return levels.map(level => {
+      return {
+        name: level,
+        current: stakeholders.filter(s => s.currentEngagement === level).length,
+        desired: stakeholders.filter(s => s.desiredEngagement === level).length,
+      };
+    });
+  }, [stakeholders]);
 
   return (
     <div className="space-y-6">
@@ -51,100 +74,149 @@ const MonitorEngagement: React.FC<Props> = ({ stakeholders, searchQuery }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Engagement Matrix (SEAM) - Takes up 2/3 */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 transition-colors">
-          <div className="p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 flex items-center gap-2">
-            <h3 className="font-semibold text-gray-700 dark:text-gray-200">Stakeholder Engagement Assessment Matrix</h3>
-            <InfoTooltip text="SEAM: A matrix that compares current and desired stakeholder engagement levels." />
+        {/* Engagement Matrix (SEAM) or Chart - Takes up 2/3 */}
+        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 transition-colors flex flex-col">
+          <div className="p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-gray-700 dark:text-gray-200">Engagement Assessment</h3>
+                <InfoTooltip text="Compare current vs desired engagement levels." />
+            </div>
+            <div className="flex bg-gray-200 dark:bg-slate-700 p-1 rounded-md">
+                <button 
+                    onClick={() => setViewMode('table')}
+                    className={`p-1.5 rounded text-xs font-medium flex items-center gap-1 transition-all ${viewMode === 'table' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+                >
+                    <TableIcon className="w-3.5 h-3.5" /> Table
+                </button>
+                <button 
+                    onClick={() => setViewMode('chart')}
+                    className={`p-1.5 rounded text-xs font-medium flex items-center gap-1 transition-all ${viewMode === 'chart' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+                >
+                    <BarChart3 className="w-3.5 h-3.5" /> Chart
+                </button>
+            </div>
           </div>
-          <div className="p-0 overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/50">
-                <tr>
-                  <th className="px-4 py-3 sticky left-0 bg-gray-50 dark:bg-slate-800 z-10 border-r dark:border-slate-700">Stakeholder</th>
-                  <th className="px-4 py-3">
-                    Power
-                    <InfoTooltip text="Level of authority or ability to influence the project outcome." />
-                  </th>
-                  <th className="px-4 py-3">
-                    Interest
-                    <InfoTooltip text="Level of concern about the project's outcomes." />
-                  </th>
-                  <th className="px-4 py-3 text-center">
-                    Unaware
-                    <InfoTooltip text="Unaware of project and potential impacts." />
-                  </th>
-                  <th className="px-4 py-3 text-center">
-                    Resistant
-                    <InfoTooltip text="Aware of project and potential impacts and resistant to change." />
-                  </th>
-                  <th className="px-4 py-3 text-center">
-                    Neutral
-                    <InfoTooltip text="Aware of project yet neither supportive nor resistant." />
-                  </th>
-                  <th className="px-4 py-3 text-center">
-                    Supportive
-                    <InfoTooltip text="Aware of project and potential impacts and supportive to change." />
-                  </th>
-                  <th className="px-4 py-3 text-center">
-                    Leading
-                    <InfoTooltip text="Aware of project and potential impacts and actively engaged in ensuring project success." />
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-                {filteredStakeholders.map((s) => (
-                  <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
-                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 sticky left-0 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/30 z-10 border-r dark:border-slate-700">
-                      {s.name}
-                      <span className="block text-xs text-gray-500 dark:text-gray-400 font-normal">{s.role}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                         s.power === 'High' 
-                           ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 ring-1 ring-inset ring-red-600/20 dark:ring-red-400/30' 
-                           : 'bg-gray-50 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400 ring-1 ring-inset ring-gray-500/10 dark:ring-gray-400/20'
-                       }`}>
-                        {s.power}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                         s.interest === 'High' 
-                           ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-1 ring-inset ring-blue-600/20 dark:ring-blue-400/30' 
-                           : 'bg-gray-50 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400 ring-1 ring-inset ring-gray-500/10 dark:ring-gray-400/20'
-                       }`}>
-                        {s.interest}
-                      </span>
-                    </td>
-                    {/* Render Matrix Cells */}
-                    {[EngagementLevel.Unaware, EngagementLevel.Resistant, EngagementLevel.Neutral, EngagementLevel.Supportive, EngagementLevel.Leading].map((level) => {
-                      const isCurrent = s.currentEngagement === level;
-                      const isDesired = s.desiredEngagement === level;
-                      return (
-                        <td key={level} className="px-4 py-3 text-center align-middle">
-                          <div className="flex justify-center gap-1">
-                            {isCurrent && (
-                              <span className="w-6 h-6 flex items-center justify-center rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 font-bold text-xs cursor-default" title="Current Level">C</span>
-                            )}
-                            {isDesired && (
-                              <span className="w-6 h-6 flex items-center justify-center rounded bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-200 font-bold text-xs cursor-default" title="Desired Level">D</span>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-                {filteredStakeholders.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                      No matching stakeholders found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          
+          <div className="flex-1 overflow-hidden min-h-[400px]">
+            {viewMode === 'table' ? (
+                <div className="overflow-x-auto h-full">
+                    <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/50">
+                        <tr>
+                        <th className="px-4 py-3 sticky left-0 bg-gray-50 dark:bg-slate-800 z-10 border-r dark:border-slate-700">Stakeholder</th>
+                        <th className="px-4 py-3">
+                            Power
+                            <InfoTooltip text="Level of authority or ability to influence the project outcome." />
+                        </th>
+                        <th className="px-4 py-3">
+                            Interest
+                            <InfoTooltip text="Level of concern about the project's outcomes." />
+                        </th>
+                        <th className="px-4 py-3 text-center">
+                            Unaware
+                            <InfoTooltip text="Unaware of project and potential impacts." />
+                        </th>
+                        <th className="px-4 py-3 text-center">
+                            Resistant
+                            <InfoTooltip text="Aware of project and potential impacts and resistant to change." />
+                        </th>
+                        <th className="px-4 py-3 text-center">
+                            Neutral
+                            <InfoTooltip text="Aware of project yet neither supportive nor resistant." />
+                        </th>
+                        <th className="px-4 py-3 text-center">
+                            Supportive
+                            <InfoTooltip text="Aware of project and potential impacts and supportive to change." />
+                        </th>
+                        <th className="px-4 py-3 text-center">
+                            Leading
+                            <InfoTooltip text="Aware of project and potential impacts and actively engaged in ensuring project success." />
+                        </th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+                        {filteredStakeholders.map((s) => (
+                        <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
+                            <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 sticky left-0 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/30 z-10 border-r dark:border-slate-700">
+                            {s.name}
+                            <span className="block text-xs text-gray-500 dark:text-gray-400 font-normal">{s.role}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                s.power === 'High' 
+                                ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 ring-1 ring-inset ring-red-600/20 dark:ring-red-400/30' 
+                                : 'bg-gray-50 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400 ring-1 ring-inset ring-gray-500/10 dark:ring-gray-400/20'
+                            }`}>
+                                {s.power}
+                            </span>
+                            </td>
+                            <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                s.interest === 'High' 
+                                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-1 ring-inset ring-blue-600/20 dark:ring-blue-400/30' 
+                                : 'bg-gray-50 dark:bg-slate-700/50 text-gray-600 dark:text-gray-400 ring-1 ring-inset ring-gray-500/10 dark:ring-gray-400/20'
+                            }`}>
+                                {s.interest}
+                            </span>
+                            </td>
+                            {/* Render Matrix Cells */}
+                            {[EngagementLevel.Unaware, EngagementLevel.Resistant, EngagementLevel.Neutral, EngagementLevel.Supportive, EngagementLevel.Leading].map((level) => {
+                            const isCurrent = s.currentEngagement === level;
+                            const isDesired = s.desiredEngagement === level;
+                            return (
+                                <td key={level} className="px-4 py-3 text-center align-middle">
+                                <div className="flex justify-center gap-1">
+                                    {isCurrent && (
+                                    <span className="w-6 h-6 flex items-center justify-center rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 font-bold text-xs cursor-default" title="Current Level">C</span>
+                                    )}
+                                    {isDesired && (
+                                    <span className="w-6 h-6 flex items-center justify-center rounded bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-200 font-bold text-xs cursor-default" title="Desired Level">D</span>
+                                    )}
+                                </div>
+                                </td>
+                            );
+                            })}
+                        </tr>
+                        ))}
+                        {filteredStakeholders.length === 0 && (
+                        <tr>
+                            <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                            No matching stakeholders found.
+                            </td>
+                        </tr>
+                        )}
+                    </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div className="h-full p-6 flex flex-col justify-center">
+                     <h4 className="text-center text-sm font-medium text-gray-600 dark:text-gray-300 mb-6">Engagement Gap Analysis (Current vs Desired)</h4>
+                     <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" strokeOpacity={0.5} />
+                            <XAxis 
+                                dataKey="name" 
+                                stroke="#6b7280" 
+                                fontSize={12} 
+                                tickLine={false} 
+                                axisLine={{stroke: '#e5e7eb'}}
+                            />
+                            <YAxis stroke="#6b7280" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                            <Tooltip 
+                                cursor={{fill: 'transparent'}}
+                                contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', borderRadius: '0.375rem', fontSize: '12px' }}
+                                itemStyle={{ color: '#fff' }}
+                            />
+                            <Legend />
+                            <Bar name="Current Count" dataKey="current" fill="#93c5fd" radius={[4, 4, 0, 0]} />
+                            <Bar name="Desired Count" dataKey="desired" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                     </ResponsiveContainer>
+                     <p className="text-center text-xs text-gray-400 mt-4 italic">
+                        Visualizing the required shift in stakeholder engagement. Positive movement typically flows from Left (Unaware) to Right (Leading).
+                     </p>
+                </div>
+            )}
           </div>
         </div>
 
